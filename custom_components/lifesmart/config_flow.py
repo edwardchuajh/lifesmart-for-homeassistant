@@ -67,9 +67,9 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]):
             data[CONF_LIFESMART_USERTOKEN] = login_response.get(
                 "usertoken", data.get(CONF_LIFESMART_USERTOKEN, "")
             )
-            data[CONF_REGION] = login_response.get(
-                "rgn", login_response.get("region", data.get(CONF_REGION, "cn2"))
-            )
+            # Homelab fork: always cn0. This account's login returns
+            # rgn "tw", and api.tw.ilifesmart.com doesn't resolve.
+            data[CONF_REGION] = "cn0"
             # 同时更新 userid，以防 API 返回的是规范化的 userid
             if "userid" in login_response:
                 data[CONF_LIFESMART_USERID] = login_response.get(

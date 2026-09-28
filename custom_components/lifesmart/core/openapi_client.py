@@ -196,7 +196,9 @@ class LifeSmartOAPIClient(LifeSmartClientBase):
 
         if response2.get("code") == "success" and "usertoken" in response2:
             self._usertoken = response2["usertoken"]
-            self._region = response2.get("rgn") or auth_region
+            # Homelab fork: always cn0 (the server says "tw", which has no
+            # DNS) - see config_flow.py.
+            self._region = "cn0"
             if self._userid != response2["userid"]:
                 self._userid = response2["userid"]
             _LOGGER.info("成功登录并获取用户令牌。")
