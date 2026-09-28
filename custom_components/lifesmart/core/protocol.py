@@ -230,17 +230,15 @@ class LifeSmartProtocol:
                 zz = self._decode_varint(stream)
                 return (zz >> 1) ^ -(zz & 1)  # 反 ZigZag
 
-            if data_type == 0x05:  # HEX类型处理
-                index = stream.read(1)[0]
-                hex_data = stream.read(8)
-                if len(hex_data) < 8:
-                    raise EOFError("HEX 数据不完整")
-                return {
-                    "type": "HEX",
-                    "index": index,
-                    "value": hex_data.hex(),
-                    "raw": hex_data,
-                }
+            if data_type == 0x05:  # 64-bit big-endian float
+                # Local patch (2026-09-25): these hubs send battery voltages
+                # (e.g. 3.04) as 8 raw bytes. Reading an extra "index" byte
+                # here, as upstream did, misaligned the rest of the config
+                # packet and local mode loaded no devices.
+                raw = stream.read(8)
+                if len(raw) < 8:
+                    raise EOFError("float64 数据不完整")
+                return struct.unpack(">d", raw)[0]
 
             elif data_type == 0x06:  # 时间戳类型处理
                 index = stream.read(1)[0]
