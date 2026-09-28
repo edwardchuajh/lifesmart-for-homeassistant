@@ -467,13 +467,27 @@ class TestProtocolErrorHandling:
         with pytest.raises(EOFError, match="字符串数据不足"):
             protocol._parse_value(BytesIO(incomplete_string_data), 0x11)  # 字符串类型码
 
-    def test_incomplete_hex_data(self, protocol: LifeSmartProtocol):
-        """测试十六进制数据不完整的情况。"""
-        # 模拟HEX数据不完整（需要8字节但只有4字节）
-        incomplete_hex_data = b"\x01\x11\x22\x33"
+    def test_incomplete_float64_data(self, protocol: LifeSmartProtocol):
+        """0x05 needs 8 bytes; 4 is incomplete."""
+        with pytest.raises(EOFError, match="float64 数据不完整"):
+            protocol._parse_value(BytesIO(b"\x01\x11\x22\x33"), 0x05)
 
-        with pytest.raises(EOFError, match="HEX 数据不完整"):
-            protocol._parse_value(BytesIO(incomplete_hex_data), 0x05)  # HEX类型码
+    def test_float64_value(self, protocol: LifeSmartProtocol):
+        """0x05 is a big-endian float64 with no index byte - a real
+        hub's battery voltage "rv" of 3.04, bytes as sent."""
+        stream = BytesIO(bytes.fromhex("400851eb851eb852") + b"\x11")
+        assert protocol._parse_value(stream, 0x05) == pytest.approx(3.04)
+        assert stream.tell() == 8  # the next value's type byte is untouched
+
+    def test_float64_inside_a_dict_keeps_alignment(self, protocol: LifeSmartProtocol):
+        """A dict with a 0x05 value followed by more keys decodes whole -
+        the old index-byte read swallowed the next key's type byte."""
+        data = (
+            b"\x02"  # 2 entries
+            + b"\x11\x02rv" + b"\x05" + bytes.fromhex("400851eb851eb852")
+            + b"\x11\x03val" + b"\x04\x02"  # zigzag 2 -> 1
+        )
+        assert protocol._parse_value(BytesIO(data), 0x12) == {"rv": pytest.approx(3.04), "val": 1}
 
     def test_incomplete_timestamp_data(self, protocol: LifeSmartProtocol):
         """测试时间戳数据不完整的情况。"""

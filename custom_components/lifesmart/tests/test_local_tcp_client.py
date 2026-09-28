@@ -94,7 +94,7 @@ def sample_packets(protocol):
                         0,
                         0,
                         0,
-                        {"base": [0, "test_node"], "agt": [0, "test_agt"]},
+                        {"base": [0, "test_node"], "agt": [0, "test_node/me"]},
                     ],
                     "act": "Login",
                 },
@@ -263,7 +263,7 @@ class TestNetworkConnectionManagement:
         # 验证连接状态
         assert client.is_connected, "登录成功后应该处于连接状态"
         assert client.node == "test_node", "节点名称应该正确设置"
-        assert client.node_agt == "test_agt", "节点AGT应该正确设置"
+        assert client.node_agt == "test_node/me", "节点AGT应该正确设置"
 
         # 清理
         client.disconnect()
@@ -556,7 +556,8 @@ class TestDeviceManagementAndDataProcessing:
         msg = call_args["msg"]
         assert msg["me"] == "device_1", "设备ID应该正确"
         assert msg["idx"] == "L1", "子设备索引应该正确"
-        assert msg["agt"] == "test_agt", "AGT应该正确"
+        # Devices and pushes carry the bare hub id (node), like cloud mode.
+        assert msg["agt"] == "test_node", "AGT应该正确"
 
         # 清理
         client.disconnect()
