@@ -21,5 +21,11 @@ Fixes 1 and 2 are worth offering upstream; once upstream has them, move
 back to upstream (keeping only fix 3, if still needed).
 
 To pick up a new upstream release: rebase `homelab` onto the new tag,
-bump `manifest.json`'s version (`vX-homelab.N`), tag it the same, and
-publish a GitHub release - HACS offers releases as updates.
+bump `manifest.json`'s version, tag it the same, and publish a GitHub
+release - HACS offers releases as updates.
+
+**The version must be one Home Assistant can parse** (CalVer/SemVer/
+PEP 440 via AwesomeVersion) or HA silently refuses to load the
+integration ("Integration not found"). Use a fourth number:
+`v2026.05.4.1`, `v2026.05.4.2`... - NOT `v2026.05.4-homelab.1`, which
+broke the first release of this fork.
