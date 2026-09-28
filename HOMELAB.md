@@ -21,9 +21,20 @@ upstream's `v2026.05.4` plus:
    an IR command for another hub went to the wrong hub and silently did
    nothing. Each call now uses the connection for its `agt`.
 
+5. **fix(local): a clear error for learned IR keys by name.** Local mode
+   can't send `send_ir_keys` / `send_ackeys` by key name (the hub rejects
+   the RunA: `ESN1NE` for upstream's "AI_IR_<me>", `EBA` with the real
+   remote id, and its irkey items expose no buttons). It now raises
+   "create a LifeSmart scene for the key, then call lifesmart.trigger_scene"
+   instead of reporting success while nothing happens. Hub scenes run fine
+   locally (plain RunA with the scene id).
+6. **fix(local): run the connection loop as a background task,** so HA's
+   startup doesn't wait on it ("Setup timed out for bootstrap waiting on
+   ... async_connect()").
+
 Local mode here: hub IP, **port 8888** (the config flow defaults to 3000).
 
-Fixes 1 and 2 are worth offering upstream; once upstream has them, move
+Not offered upstream for now (decided 2026-09-28). Fixes 1, 2, 4, 5 and 6 would be worth offering later; once upstream has them, move
 back to upstream (keeping only fix 3, if still needed).
 
 To pick up a new upstream release: rebase `homelab` onto the new tag,

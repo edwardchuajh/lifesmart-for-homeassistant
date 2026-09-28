@@ -9,11 +9,20 @@ import asyncio
 import logging
 from typing import Callable, Any
 
+from homeassistant.exceptions import HomeAssistantError
+
 from .client_base import LifeSmartClientBase
 from .protocol import LifeSmartPacketFactory, LifeSmartProtocol
 from ..helpers import safe_get, normalize_device_names
 
 _LOGGER = logging.getLogger(__name__)
+
+# Homelab fork - see _async_send_ir_key.
+_LOCAL_IR_UNSUPPORTED = (
+    "Local mode can't send a learned IR remote's keys by name. Create a "
+    "scene in the LifeSmart app that presses the key, then call "
+    "lifesmart.trigger_scene with the hub (agt) and the scene's id."
+)
 
 
 class LifeSmartLocalTCPClient(LifeSmartClientBase):
@@ -447,27 +456,13 @@ class LifeSmartLocalTCPClient(LifeSmartClientBase):
         注意：本地TCP协议主要支持ai参数（已学习的虚拟遥控器），
         对idx参数的支持可能有限，取决于设备固件版本。
         """
-        if not self._factory:
-            _LOGGER.error("本地客户端工厂未初始化，无法发送红外指令。")
-            return -1
-
-        # 检查参数有效性
-        if not ai and not idx:
-            _LOGGER.error("ai和idx参数必须提供其中一个")
-            raise ValueError("ai和idx参数必须提供其中一个")
-
-        # 本地协议中红外按键通过红外控制场景实现
-        ir_options = {"category": category, "brand": brand, "keys": keys}
-
-        # 优先使用ai参数，如果没有则使用idx
-        if ai:
-            ir_options["ai"] = ai
-        elif idx:
-            ir_options["idx"] = idx
-            _LOGGER.warning("本地TCP协议对idx参数支持有限，建议使用ai参数")
-
-        pkt = self._factory.build_ir_control_packet(me, ir_options)
-        return await self._send_packet(pkt)
+        # Homelab fork: fail loudly instead of "succeeding" silently. Upstream
+        # sent RunA with cron_name "AI_IR_<me>", which the hub rejects
+        # ("ESN1NE" - no such item); with the remote's real id it answers
+        # "EBA" (bad args), and the hub's irkey items expose no buttons - a
+        # learned key by name seems to be cloud-only. _send_packet never read
+        # the reply, so the service reported success while nothing happened.
+        raise HomeAssistantError(_LOCAL_IR_UNSUPPORTED)
 
     async def _async_add_scene(self, agt: str, scene_name: str, actions: str) -> int:
         """
@@ -541,8 +536,11 @@ class LifeSmartLocalTCPClient(LifeSmartClientBase):
         """
         [本地实现] 通过场景控制红外设备。
         此方法通过调用 ir_control_async 来实现基类的抽象方法。
+
+        Homelab fork: same "AI_IR_<me>" RunA as _async_send_ir_key, which
+        the hub rejects - raise instead of reporting a silent success.
         """
-        return await self.ir_control_async(device_id, options)
+        raise HomeAssistantError(_LOCAL_IR_UNSUPPORTED)
 
     async def _async_send_ir_code(self, device_id: str, ir_data: list | bytes) -> int:
         """

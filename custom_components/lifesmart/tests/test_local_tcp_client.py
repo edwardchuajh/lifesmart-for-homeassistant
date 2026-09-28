@@ -968,25 +968,25 @@ class TestSceneAndIRControl:
 
     @pytest.mark.asyncio
     async def test_send_ir_keys(self, mocked_client):
-        """测试红外按键发送功能。"""
-        keys_data = json.dumps([{"key": "power", "delay": 500}])
+        """Homelab fork: a learned remote's key by name isn't sendable
+        locally (the hub rejects the RunA), so it raises a clear error
+        pointing at hub scenes instead of silently "succeeding"."""
+        from homeassistant.exceptions import HomeAssistantError
 
-        with patch.object(
-            mocked_client._factory, "build_ir_control_packet", return_value=b"packet"
-        ) as mock_build:
+        keys_data = json.dumps([{"key": "power", "delay": 500}])
+        with pytest.raises(HomeAssistantError, match="trigger_scene"):
             await mocked_client._async_send_ir_key(
                 "agt", "remote1", "tv", "samsung", keys_data, "ai1"
             )
+        mocked_client._send_packet.assert_not_awaited()
 
-            # 验证调用参数：设备ID和红外选项字典
-            expected_options = {
-                "category": "tv",
-                "brand": "samsung",
-                "keys": keys_data,
-                "ai": "ai1",
-            }
-            mock_build.assert_called_once_with("remote1", expected_options)
-            mocked_client._send_packet.assert_awaited_once()
+    @pytest.mark.asyncio
+    async def test_ac_ir_control_raises_the_same_error(self, mocked_client):
+        from homeassistant.exceptions import HomeAssistantError
+
+        with pytest.raises(HomeAssistantError, match="trigger_scene"):
+            await mocked_client._async_ir_control("remote1", {"keys": "power"})
+        mocked_client._send_packet.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_send_ir_code(self, mocked_client):

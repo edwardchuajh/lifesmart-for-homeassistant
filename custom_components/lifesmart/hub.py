@@ -235,8 +235,12 @@ class LifeSmartHub:
             )
 
             # 创建连接任务
-            self._local_task = self.hass.async_create_task(
-                self.client.async_connect(self._local_update_callback)
+            # Homelab fork: a background task - the connection loop never
+            # finishes, and HA's startup waits on ordinary tasks ("Setup
+            # timed out for bootstrap waiting on ... async_connect()").
+            self._local_task = self.hass.async_create_background_task(
+                self.client.async_connect(self._local_update_callback),
+                name=f"lifesmart_local_{self.config_entry.entry_id}",
             )
 
             # 获取设备列表
