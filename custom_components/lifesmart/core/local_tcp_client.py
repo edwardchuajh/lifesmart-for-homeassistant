@@ -238,7 +238,10 @@ class LifeSmartLocalTCPClient(LifeSmartClientBase):
                                             and cls_value[-3:-1] == "_V"
                                             else cls_value
                                         ),
-                                        "agt": self.node_agt,
+                                        # Local patch: the bare hub id (node), not
+                                        # node_agt ("<hub>/me"), so unique IDs and
+                                        # service calls match cloud mode.
+                                        "agt": self.node,
                                         "name": dev["name"],
                                         "data": safe_get(
                                             dev, "_chd", "m", "_chd", default={}
@@ -301,7 +304,7 @@ class LifeSmartLocalTCPClient(LifeSmartClientBase):
                                                 msg = {
                                                     "me": dev_id,
                                                     "idx": sub_key,
-                                                    "agt": self.node_agt,
+                                                    "agt": self.node,
                                                     "devtype": self.devices[dev_id][
                                                         "devtype"
                                                     ],
@@ -506,7 +509,7 @@ class LifeSmartLocalTCPClient(LifeSmartClientBase):
         注意：本地连接只能访问当前连接的中枢。
         """
         if self.node_agt:
-            return [{"agt": self.node_agt, "name": f"Local Hub {self.node_agt}"}]
+            return [{"agt": self.node, "name": f"Local Hub {self.node}"}]
         return []
 
     async def _async_change_device_icon(self, device_id: str, icon: str) -> int:
