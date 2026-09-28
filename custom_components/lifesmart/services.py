@@ -13,6 +13,7 @@ from homeassistant.exceptions import PlatformNotReady, HomeAssistantError
 
 from .const import DEVICE_ID_KEY, HUB_ID_KEY, SUBDEVICE_INDEX_KEY, DOMAIN
 from .core.client_base import LifeSmartClientBase
+from .core.local_tcp_client import LifeSmartLocalTCPClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +33,34 @@ class LifeSmartServiceManager:
         """
         self.hass = hass
         self.client = client
+
+    def _client_for(self, agt: str | None) -> LifeSmartClientBase:
+        """The connection that can reach hub `agt`, looked up per call.
+
+        Homelab fork: the services are registered once, by whichever entry
+        loads first, so using that entry's client (self.client) sent every
+        call to one hub. A local connection reaches only its own hub, so
+        with several local entries an IR command for another hub went to
+        the wrong hub and silently did nothing. A cloud connection reaches
+        every hub on the account.
+        """
+        cloud = None
+        clients = [
+            data.get("client")
+            for data in self.hass.data.get(DOMAIN, {}).values()
+            if isinstance(data, dict) and data.get("client") is not None
+        ]
+        if not clients:
+            return self.client  # no entries registered (e.g. unit tests)
+        for client in clients:
+            if isinstance(client, LifeSmartLocalTCPClient):
+                if agt and client.node == agt:
+                    return client
+            elif cloud is None:
+                cloud = client
+        if cloud is not None:
+            return cloud
+        raise HomeAssistantError(f"No LifeSmart connection reaches hub {agt}")
 
     def register_services(self) -> None:
         """注册所有 LifeSmart 服务。"""
@@ -67,7 +96,7 @@ class LifeSmartServiceManager:
                 raise HomeAssistantError(
                     "发送红外按键失败：'ai' 和 'idx' 参数必须提供其中一个"
                 )
-            await self.client.async_send_ir_key(
+            await self._client_for(call.data[HUB_ID_KEY]).async_send_ir_key(
                 call.data[HUB_ID_KEY],
                 call.data[DEVICE_ID_KEY],
                 call.data["category"],
@@ -124,7 +153,9 @@ class LifeSmartServiceManager:
                 ac_options["keyDetail"] = call.data["keyDetail"]
 
             # 使用红外控制接口发送空调命令
-            await self.client.async_ir_control(call.data[DEVICE_ID_KEY], ac_options)
+            await self._client_for(call.data[HUB_ID_KEY]).async_ir_control(
+                call.data[DEVICE_ID_KEY], ac_options
+            )
             _LOGGER.info("空调红外命令发送成功: %s", call.data)
         except PlatformNotReady as e:
             _LOGGER.warning("空调红外控制功能暂时不可用: %s", e)
@@ -157,13 +188,13 @@ class LifeSmartServiceManager:
                 _LOGGER.info(
                     "正在通过服务调用触发场景: Hub=%s, SceneID=%s", agt, scene_id
                 )
-                await self.client.async_set_scene(agt, scene_id)
+                await self._client_for(agt).async_set_scene(agt, scene_id)
             else:
                 # 使用场景名称
                 _LOGGER.info(
                     "正在通过服务调用触发场景: Hub=%s, SceneName=%s", agt, scene_name
                 )
-                await self.client.async_set_scene(agt, scene_name)
+                await self._client_for(agt).async_set_scene(agt, scene_name)
 
             _LOGGER.info("场景触发成功。")
         except PlatformNotReady as e:
@@ -201,7 +232,7 @@ class LifeSmartServiceManager:
             return
 
         try:
-            await self.client.press_switch_async(idx, agt, me, duration)
+            await self._client_for(agt).press_switch_async(idx, agt, me, duration)
             _LOGGER.info("点动开关成功: %s (持续时间: %dms)", entity_id, duration)
         except PlatformNotReady as e:
             _LOGGER.warning("点动开关功能暂时不可用: %s", e)

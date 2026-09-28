@@ -15,6 +15,12 @@ upstream's `v2026.05.4` plus:
 3. **fix(cloud): pin the API region to `cn0`.** This account's login
    returns `rgn: "tw"`, and `api.tw.ilifesmart.com` doesn't resolve.
 
+4. **fix(local): route service calls to the hub they name.** The services
+   (IR keys, scenes, press switch) are registered by whichever entry loads
+   first and used that entry's connection - with one local entry per hub,
+   an IR command for another hub went to the wrong hub and silently did
+   nothing. Each call now uses the connection for its `agt`.
+
 Local mode here: hub IP, **port 8888** (the config flow defaults to 3000).
 
 Fixes 1 and 2 are worth offering upstream; once upstream has them, move
