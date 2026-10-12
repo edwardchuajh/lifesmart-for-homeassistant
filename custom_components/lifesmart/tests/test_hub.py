@@ -312,6 +312,33 @@ class TestLifeSmartHub:
             mock_client.async_get_all_devices.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_periodic_refresh_updates_what_entities_read(
+        self, hass: HomeAssistant, mock_config_entry_oapi
+    ):
+        """Homelab: the entities' global refresh reads hass.data devices, so
+        a refresh must replace that list - not only hub.devices. Otherwise
+        every refresh replays the setup-time states (a door left open shows
+        closed again)."""
+        mock_config_entry_oapi.add_to_hass(hass)
+        hub = LifeSmartHub(hass, mock_config_entry_oapi)
+        old = [{"agt": "hub1", "me": "door", "data": {"G": {"val": 1}}}]
+        new = [{"agt": "hub1", "me": "door", "data": {"G": {"val": 0}}}]
+        hass.data.setdefault(DOMAIN, {})[mock_config_entry_oapi.entry_id] = {"devices": old}
+        hub.client = create_mock_oapi_client()
+        hub.client.async_get_all_devices.return_value = new
+
+        await hub._async_periodic_refresh()
+
+        assert hub.devices is new
+        assert hass.data[DOMAIN][mock_config_entry_oapi.entry_id]["devices"] is new
+
+        # A timed-out local fetch (False) keeps the last good list.
+        hub.client.async_get_all_devices.return_value = False
+        await hub._async_periodic_refresh()
+        assert hub.devices is new
+        assert hass.data[DOMAIN][mock_config_entry_oapi.entry_id]["devices"] is new
+
+    @pytest.mark.asyncio
     async def test_ws_timeout_configuration(
         self, hass: HomeAssistant, mock_config_entry_oapi
     ):

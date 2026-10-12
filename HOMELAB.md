@@ -32,9 +32,18 @@ upstream's `v2026.05.4` plus:
    startup doesn't wait on it ("Setup timed out for bootstrap waiting on
    ... async_connect()").
 
+7. **fix: the periodic refresh updates what the entities read.** The
+   10-minute refresh stored the new device list on the hub object only;
+   every entity's refresh reads `hass.data[DOMAIN][entry]["devices"]`, set
+   once at setup. So every 10 minutes each entity was reset to its state
+   from the first device load - a door left open showed "closed" until
+   the next push (a ~42-minute heartbeat), which made it "open" again:
+   a false "door opened" while nobody was home (2026-10-04). A refresh
+   that times out (local mode returns False) now keeps the last list.
+
 Local mode here: hub IP, **port 8888** (the config flow defaults to 3000).
 
-Not offered upstream for now (decided 2026-09-28). Fixes 1, 2, 4, 5 and 6 would be worth offering later; once upstream has them, move
+Not offered upstream for now (decided 2026-09-28). Fixes 1, 2, 4, 5, 6 and 7 would be worth offering later; once upstream has them, move
 back to upstream (keeping only fix 3, if still needed).
 
 To pick up a new upstream release: rebase `homelab` onto the new tag,

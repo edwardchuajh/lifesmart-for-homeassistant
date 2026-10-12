@@ -322,7 +322,20 @@ class LifeSmartHub:
         try:
             _LOGGER.debug("开始定时刷新设备数据。")
             new_devices = await self.client.async_get_all_devices()
+            if not new_devices:
+                # The local client returns False when it times out - keep
+                # the last good list rather than storing that.
+                _LOGGER.warning("定时刷新未取得设备数据，保留上一次的数据。")
+                return
             self.devices = new_devices
+            # Homelab fix: the entities' global refresh reads
+            # hass.data[DOMAIN][entry]["devices"], which was set once at setup
+            # and never updated - so every 10 minutes each entity was reset to
+            # its state from the first device load (a door left open showed as
+            # closed until the next push, then "opened" again).
+            entry_data = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
+            if isinstance(entry_data, dict):
+                entry_data["devices"] = new_devices
             dispatcher_send(self.hass, LIFESMART_SIGNAL_UPDATE_ENTITY)
             _LOGGER.debug("全局设备数据刷新完成。")
         except (LifeSmartAPIError, LifeSmartAuthError) as e:
